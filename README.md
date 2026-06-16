@@ -1,246 +1,278 @@
 # RoomIt — Meeting Room Booking System
 
-An internal tool for booking meeting rooms with real-time availability, waitlist auto-promotion, and database-level concurrency protection.
+An internal meeting room booking platform built with Next.js, Express, and MongoDB. The system supports real-time room availability, waitlist auto-promotion, booking cancellation policies, and transaction-safe booking creation to prevent double-booking.
 
-## Live Demo
+## 🚀 Live Demo
 
-- **Frontend:** [https://your-vercel-link.vercel.app](https://your-vercel-link.vercel.app)
-- **Backend:** [https://your-render-link.onrender.com](https://your-render-link.onrender.com)
+### Frontend
 
-## Tech Stack
+https://room-meeting-kappa.vercel.app
 
-| Layer | Technology |
-|-------|-----------|
-| Frontend | Next.js 16 (App Router), React 19, Tailwind CSS 4 |
-| Backend | Express 5, Mongoose 9, Node.js |
-| Database | MongoDB Atlas (Replica Set for transactions) |
+### Backend
 
-## Extended Requirements Implemented
+https://roommeeting-sf0j.onrender.com
 
-- [x] **4.2 — Waitlist with atomic auto-promotion** (Section 4)
-- [x] **4.3 — Buffer time between bookings** (Section 4)
+---
 
-## Quick Start
+## 📌 Features
 
-### Prerequisites
+### Room Management
 
-- Node.js 18+
-- pnpm (or npm)
-- MongoDB Atlas connection string (replica set required for transactions)
+* View all available meeting rooms
+* Room capacity and buffer-time configuration
+* Real-time availability checking
 
-### 1. Clone the repo
+### Booking System
 
-```bash
-git clone https://github.com/yourusername/roomit.git
-cd roomit
+* Create bookings using adjacent 30-minute slots
+* Atomic booking creation using MongoDB transactions
+* Double-booking prevention
+* Booking lookup by email
+
+### Waitlist System
+
+* Join waitlist for fully booked slots
+* Automatic promotion when a booking is cancelled
+* Promotion occurs inside the same database transaction
+
+### Cancellation Policy
+
+* Refundable cancellation (2+ hours before meeting)
+* Non-refundable cancellation (<2 hours before meeting)
+* Past bookings cannot be cancelled
+
+### Buffer Time Support
+
+* Configurable room buffer period
+* Buffer slots displayed separately in UI
+* Enforced during booking validation
+
+---
+
+## 🛠 Tech Stack
+
+| Layer      | Technology                         |
+| ---------- | ---------------------------------- |
+| Frontend   | Next.js 16, Tailwind CSS |
+| Backend    | Node.js, Express 5                 |
+| Database   | MongoDB Atlas                      |
+| ODM        | Mongoose                           |
+| Deployment | Vercel + Render                    |
+
+---
+
+## 📂 Project Structure
+
+```text
+roomMeeting/
+│
+├── frontend/
+│   ├── src/
+│   │   └── app/
+│   ├── next.config.mjs
+│   └── package.json
+│
+├── backend/
+│   ├── src/
+│   │   ├── controller/
+│   │   ├── models/
+│   │   ├── routes/
+│   │   ├── utils/
+│   │   ├── app.js
+│   │   └── index.js
+│   │
+│   ├── seed.js
+│   └── package.json
+│
+└── README.md
 ```
 
-### 2. Backend Setup
+---
+
+## ⚙️ Local Setup
+
+### Clone Repository
+
+```bash
+git clone https://github.com/dhannu-dev/roomMeeting.git
+cd roomMeeting
+```
+
+---
+
+## Backend Setup
 
 ```bash
 cd backend
-cp .env.example .env   # or create .env manually
-pnpm install
-```
-
-**Create `backend/.env`:**
-
-```env
-PORT=5000
-MONGO_URI=mongodb+srv://<username>:<password>@cluster0.xxxxx.mongodb.net/meetingRooms?appName=Cluster0
-CORS_ORIGIN=http://localhost:3000
-```
-
-**Seed the database:**
-
-```bash
-node seed.js
-```
-
-This creates:
-- 4 rooms (Board Room, Huddle Room A, Conference Hall, Focus Pod)
-- 10 bookings (8 regular + 2 near-future for refund testing)
-
-**Start the backend:**
-
-```bash
-pnpm dev
-```
-
-Backend runs on `http://localhost:5000`
-
-### 3. Frontend Setup
-
-```bash
-cd ../frontend
 npm install
 ```
 
-**Create `frontend/.env`:**
+Create `.env`
 
 ```env
-NEXT_PUBLIC_API_URL=http://localhost:5000
+PORT=5000
+MONGO_URI=your_mongodb_connection_string
+CORS_ORIGIN=http://localhost:3000
 ```
 
-**Start the frontend:**
+Run backend:
 
 ```bash
 npm run dev
 ```
 
-Frontend runs on `http://localhost:3000`
+Backend runs on:
 
-## API Endpoints
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| `GET` | `/api/v1/room` | List all rooms |
-| `GET` | `/api/v1/room/:id/availability?date=YYYY-MM-DD` | Slot grid for a room+date |
-| `POST` | `/api/v1/room` | Create a new room |
-| `POST` | `/api/v1/booking` | Create a booking (atomic) |
-| `GET` | `/api/v1/booking?email=` | Get bookings + waitlist for an email |
-| `PATCH` | `/api/v1/booking/:id/cancel` | Cancel a booking (atomic, with refund logic) |
-| `POST` | `/api/v1/waitlist` | Join waitlist for a booked slot |
-
-## How It Works
-
-### User Flow
-
-1. **Browse rooms** — Home page shows all available rooms with capacity and buffer info
-2. **Check availability** — Click a room to see the 30-minute slot grid for a selected date
-3. **Select slots** — Click green (available) slots; they must be adjacent
-4. **Book** — Fill in name, email, meeting title → booking is created atomically
-5. **Waitlist** — Click a red (booked) slot to join the waitlist; get auto-promoted when it's cancelled
-6. **Manage bookings** — Look up bookings by email, cancel with refundable/non-refundable status
-
-### Slot Colors
-
-| Color | Status |
-|-------|--------|
-| 🟢 Green | Available — click to select |
-| 🔴 Red | Booked — click to join waitlist |
-| 🟡 Yellow | Buffer — blocked after a booking ends |
-| 🟣 Purple | Currently selected by you |
-
-## Concurrency & Correctness
-
-### Double-Booking Prevention (Section 3.1)
-
-This is the core challenge. Two people clicking "Book" at the same millisecond for the same slot must result in exactly one success.
-
-**Problem with naive approach:**
-
-```
-Request A:  FIND bookings → no conflict → CREATE booking
-Request B:  FIND bookings → no conflict → CREATE booking  (snuck in during A's gap)
-Result: Both succeed — double booking!
+```text
+http://localhost:5000
 ```
 
-**Our solution: MongoDB Transactions**
+---
 
-```
-Request A:  BEGIN TRANSACTION
-              FIND bookings (locked snapshot)
-              CHECK overlap
-              CREATE booking
-            COMMIT
+## Frontend Setup
 
-Request B:  BEGIN TRANSACTION (waits for A to commit)
-              FIND bookings → sees A's booking
-              CHECK overlap → conflict detected
-            ABORT → 409 error
+```bash
+cd frontend
+npm install
 ```
 
-- `createBooking` and `cancelBooking` both run inside `session.withTransaction()`
-- The unique compound index `{ roomId, date, startTime }` acts as a safety net
-- Buffer time is enforced during the overlap check
+Create `.env.local`
 
-### Refund-Window Rule (Section 3.2)
-
-- Computed at cancellation time using the **server clock**
-- ≥2 hours before start → `cancelled-refundable`
-- <2 hours before start → `cancelled-non-refundable`
-- Past bookings cannot be cancelled
-
-### Buffer Time (Section 4.3)
-
-Each room has a configurable buffer (e.g., 10–15 minutes) that blocks the room after a booking ends:
-
-- The availability grid shows buffer slots as yellow/unavailable
-- `createBooking` rejects bookings that would start during another booking's buffer
-- Enforced at the database level inside the transaction
-
-### Waitlist Auto-Promotion (Section 4.2)
-
-- Users join a waitlist for a fully-booked slot with a position number
-- When the booking is cancelled, the first waitlisted person is auto-promoted
-- Promotion happens **inside the same transaction** as the cancel — no race condition
-
-## Project Structure
-
-```
-roomit/
-├── backend/
-│   ├── src/
-│   │   ├── controller/
-│   │   │   ├── booking.controller.js    # Booking CRUD + cancel + waitlist promotion
-│   │   │   ├── room.controller.js       # Room CRUD + availability grid
-│   │   │   └── waitlist.controller.js   # Waitlist join
-│   │   ├── models/
-│   │   │   ├── booking.model.js         # Booking schema + unique index
-│   │   │   ├── room.model.js            # Room schema (with bufferMins)
-│   │   │   └── waitlist.model.js        # Waitlist schema
-│   │   ├── routes/
-│   │   │   ├── booking.routes.js
-│   │   │   ├── room.routes.js
-│   │   │   └── waitlist.routes.js
-│   │   ├── utils/
-│   │   │   ├── apiError.js
-│   │   │   ├── apiResponse.js
-│   │   │   └── asyncHandler.js
-│   │   ├── app.js                       # Express app setup
-│   │   └── index.js                     # Server entry point
-│   ├── seed.js                          # Database seeder
-│   ├── .env
-│   └── package.json
-├── frontend/
-│   ├── src/
-│   │   └── app/
-│   │       ├── globals.css              # Custom theme (light mode)
-│   │       ├── layout.js                # Root layout with nav
-│   │       ├── page.js                  # Home — room cards
-│   │       ├── rooms/
-│   │       │   └── [id]/page.js         # Room detail — slot grid + booking form
-│   │       └── bookings/
-│   │           └── page.js              # My Bookings — email lookup + cancel
-│   ├── next.config.mjs                  # API proxy rewrites
-│   ├── .env
-│   └── package.json
-└── README.md
+```env
+NEXT_PUBLIC_API_URL=http://localhost:5000
 ```
 
-## Environment Variables
+Run frontend:
 
-### Backend (`backend/.env`)
+```bash
+npm run dev
+```
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Server port (default: 5000) |
-| `MONGO_URI` | MongoDB Atlas connection string with `meetingRooms` database |
-| `CORS_ORIGIN` | Frontend URL for CORS (default: http://localhost:3000) |
+Frontend runs on:
 
-### Frontend (`frontend/.env`)
+```text
+http://localhost:3000
+```
 
-| Variable | Description |
-|----------|-------------|
-| `NEXT_PUBLIC_API_URL` | Backend URL (default: http://localhost:5000) |
+---
 
-## Known Limitations
+## 🌐 API Endpoints
 
-- **No authentication** — email-based lookup only, no auth middleware
-- **Single-slot atomicity** — the unique index on `{ roomId, date, startTime }` catches same-slot conflicts; range overlaps with different startTimes are handled by the transaction's overlap check
-- **No email notifications** — waitlist promotion is reflected in the UI only
+### Rooms
 
-## License
+| Method | Endpoint                      |
+| ------ | ----------------------------- |
+| GET    | /api/v1/room                  |
+| GET    | /api/v1/room/:id/availability |
+
+### Bookings
+
+| Method | Endpoint                                                      |
+| ------ | ------------------------------------------------------------- |
+| POST   | /api/v1/booking                                               |
+| GET    | /api/v1/booking?email=[user@email.com](mailto:user@email.com) |
+| PATCH  | /api/v1/booking/:id/cancel                                    |
+
+### Waitlist
+
+| Method | Endpoint         |
+| ------ | ---------------- |
+| POST   | /api/v1/waitlist |
+
+---
+
+## 🔒 Concurrency Protection
+
+The application prevents double-booking using MongoDB transactions.
+
+### Problem
+
+Two users attempting to book the same room at the same time could create duplicate bookings.
+
+### Solution
+
+Each booking operation runs inside a MongoDB transaction:
+
+1. Start transaction
+2. Check overlapping bookings
+3. Validate buffer constraints
+4. Create booking
+5. Commit transaction
+
+If another request already booked the slot:
+
+* Transaction aborts
+* API returns conflict response
+
+This guarantees booking consistency.
+
+---
+
+## 🔄 Waitlist Auto-Promotion
+
+When a confirmed booking is cancelled:
+
+1. Booking cancellation starts a transaction
+2. Waitlist entries are checked
+3. First user in queue is promoted
+4. Booking is created automatically
+5. Transaction commits
+
+This prevents race conditions and ensures fairness.
+
+---
+
+## 💰 Refund Logic
+
+| Condition               | Result                     |
+| ----------------------- | -------------------------- |
+| 2+ hours before meeting | Cancelled - Refundable     |
+| Less than 2 hours       | Cancelled - Non-Refundable |
+| Meeting already started | Cancellation blocked       |
+
+---
+
+## 🚀 Deployment
+
+### Frontend
+
+Hosted on Vercel
+
+https://room-meeting-kappa.vercel.app
+
+### Backend
+
+Hosted on Render
+
+https://roommeeting-sf0j.onrender.com
+
+### Database
+
+MongoDB Atlas
+
+---
+
+## 🔮 Future Improvements
+
+* User Authentication (JWT)
+* Role-Based Access Control
+* Email Notifications
+* Calendar Integration
+* Admin Dashboard
+* Recurring Bookings
+* Booking Analytics
+
+---
+
+## 👨‍💻 Author
+
+Dhannu Dev
+
+GitHub:
+https://github.com/dhannu-dev
+
+---
+
+## 📄 License
 
 ISC
