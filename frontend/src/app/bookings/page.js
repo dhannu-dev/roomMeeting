@@ -106,11 +106,14 @@ export default function BookingsPage() {
       );
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Cancel failed");
-      setBookings((prev) =>
-        prev.map((b) =>
-          b._id === bookingId ? { ...b, status: data.data.status } : b
-        )
+      const refreshRes = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/booking?email=${encodeURIComponent(email)}`
       );
+      const refreshData = await refreshRes.json();
+      if (refreshRes.ok) {
+        setBookings(refreshData.data?.bookings || []);
+        setWaitlist(refreshData.data?.waitlist || []);
+      }
     } catch (err) {
       setError(err.message);
     } finally {

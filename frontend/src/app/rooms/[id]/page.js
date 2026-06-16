@@ -48,27 +48,28 @@ export default function RoomPage() {
   const [waitlistSubmitting, setWaitlistSubmitting] = useState(false);
   const [waitlistMsg, setWaitlistMsg] = useState(null);
 
+  const fetchAvailability = async () => {
+    setLoading(true);
+    setError(null);
+    setSelectedSlots([]);
+    setShowForm(false);
+    setSubmitMsg(null);
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/room/${id}/availability?date=${date}`
+      );
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch");
+      setRoom(data.data.room);
+      setSlots(data.data.slots);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchAvailability = async () => {
-      setLoading(true);
-      setError(null);
-      setSelectedSlots([]);
-      setShowForm(false);
-      setSubmitMsg(null);
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/room/${id}/availability?date=${date}`
-        );
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.message || "Failed to fetch");
-        setRoom(data.data.room);
-        setSlots(data.data.slots);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchAvailability();
   }, [id, date]);
 
@@ -132,6 +133,7 @@ export default function RoomPage() {
       setWaitlistMsg({ type: "success", text: data.message || "Added to waitlist!" });
       setWaitlistSlot(null);
       setWaitlistForm({ name: "", email: "" });
+      fetchAvailability();
     } catch (err) {
       setWaitlistMsg({ type: "error", text: err.message });
     } finally {
@@ -172,6 +174,7 @@ export default function RoomPage() {
       setSelectedSlots([]);
       setShowForm(false);
       setFormData({ name: "", email: "", title: "" });
+      fetchAvailability();
     } catch (err) {
       setSubmitMsg({ type: "error", text: err.message });
     } finally {
